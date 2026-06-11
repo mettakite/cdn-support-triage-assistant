@@ -1,0 +1,3 @@
+Customer says the page behaves differently for some clients/devices/browsers/etc. 
+
+Their mobile app gets one response, but browser users get another. They suspect request headers may be involved.

@@ -1,0 +1,3 @@
+Customer says users are getting stuck in a redirect loop after they changed their HTTP to HTTPS redirect rules. 
+
+The page never reaches a final response.

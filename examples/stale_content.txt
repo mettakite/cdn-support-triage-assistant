@@ -1,0 +1,3 @@
+Customer says they deployed a new version of their homepage about 20 minutes ago, but users are still seeing the old version. 
+
+They want to know whether the CDN is serving stale content.
