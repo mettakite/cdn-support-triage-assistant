@@ -174,8 +174,8 @@ Future versions could add:
 - LLM-generated summaries
 - Confidence scoring
 - “Do not assume” warnings
-- JSON output
-- Markdown report export
+- JSON outputs
+- Markdown report exports
 - Links to relevant docs
 - Sample `curl` output parsing
 - Stronger classification logic
