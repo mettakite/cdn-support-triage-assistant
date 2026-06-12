@@ -1,105 +1,129 @@
-# CDN Support Triage Assistant
+# CDN Triage Assistant
 
-A small support triage assistant for turning CDN-style customer issues into diagnostic steps, customer-safe responses, escalation notes, and documentation improvements.
+A small support triage assistant for turning user reported content delivery network (CDN) issues into diagnostic steps, user-safe responses, escalation notes, and documentation improvements.
 
-I built this project while preparing for Customer Support Engineer roles that involve edge platforms, CDNs, HTTP troubleshooting, and customer-facing technical support.
+I built this while preparing for support engineering roles that involve edge platforms, CDNs, HTTP troubleshooting, and user-facing technical support.
 
-This is not meant to replace a support engineer. It is meant to model the first pass of support triage:
+The goal is not to build a magic answer machine. The goal is to model the first useful support move:
 
-1. Read the customer issue.
-2. Identify the likely issue category.
-3. List the evidence needed.
-4. Suggest useful diagnostic checks.
-5. Draft a customer-safe response.
-6. Create an escalation note.
-7. Identify where documentation could prevent repeat issues.
+> Take a vague user report and turn it into a structured investigation.
 
-## Why I built this
+## Background
 
-My background is in Tier 3 support, API documentation, developer documentation, and technical writing. I have supported customers, developers, and internal teams through complex product behavior, but I have not worked directly in CDN support.
+A lot of technical support work starts with incomplete information.
 
-I built this project to show how I approach a new technical support domain: by breaking recurring issues into patterns, creating structured triage paths, and turning messy tickets into clear next steps.
+User's report a varity of issues with little background ranging from:
 
-The goal is not to pretend the assistant always knows the answer. The goal is to keep the support workflow grounded:
+- “Users are seeing old content.”
+- “The page keeps redirecting.”
+- “We’re seeing 503s.”
 
-- What did the customer report?
-- What evidence do we need?
-- What can we safely say?
+Those reports matter, but they are not enough to solve the issue. A good support engineer needs to slow the problem down:
+
+- What exactly is affected?
+- What changed?
+- What evidence do we have?
+- What can we verify?
 - What should we avoid assuming?
-- When should we escalate?
-- What should be documented for next time?
+- What can we safely tell the user?
+- When should this be escalated?
+- What should be documented so the next person has a better path?
+
+That is the workflow this project practices.
+
+My background is in technical support, SaaS troubleshooting, API documentation, developer documentation, UX writing, and technical writing. I’ve spent a lot of time in the gap between product behavior and user confusion. This project applies that same muscle to CDN-style support issues.
+
+## Overview
+
+The assistant reads a short user-style report and classifies it into a support scenario.
+
+For each scenario, it returns:
+
+- A short issue summary
+- Evidence to collect
+- Suggested diagnostic checks
+- A user-safe response draft
+- An escalation note
+- A documentation improvement
+
+The output is intentionally structured. The point is to make the first pass of triage easier to review, improve, and hand off.
+
+## Scenarios
+
+| Scenario                         | Example user report                                       | What the assistant helps with                                           |
+| -------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Stale content / cache freshness  | “We deployed an update, but users still see the old version.” | Cache headers, TTLs, purge questions, freshness expectations            |
+| Redirect loop                    | “The page keeps redirecting and never loads.”                 | Redirect chains, `Location` headers, HTTP/HTTPS or host conflicts       |
+| 503 / origin availability        | “Users are seeing service unavailable errors.”                | Origin health, backend changes, path scope, edge vs. origin questions   |
+| Header-dependent behavior        | “The page behaves differently for some clients.”              | Request headers, response variants, `Vary`, cookies, client differences |
+| Unknown / needs more information | “Something is broken.”                                        | Intake questions, missing evidence, next-step structure                 |
 
 ## How it works
 
-The first version uses simple keyword matching to classify a support ticket into one of these categories:
+The first version uses simple keyword matching. That is intentional.
 
-| Category | Example customer issue |
-|---|---|
-| Stale content / cache freshness | "We deployed an update, but users still see the old version." |
-| Redirect loop | "The page keeps redirecting and never loads." |
-| 503 / origin availability | "Users are seeing service unavailable errors." |
-| Header-dependent behavior | "The page behaves differently for some clients." |
-| Unknown / needs more information | "Something is broken, but we need more detail." |
+Before adding an LLM, I wanted the workflow to be explicit and reviewable. The tool should not pretend to know more than it knows.
 
-For each category, the tool returns:
+The classifier looks for common issue patterns and maps the ticket to a scenario:
 
-- Issue summary
-- Evidence to collect
-- Suggested diagnostic checks
-- Customer-safe response draft
-- Escalation note
-- Documentation improvement
+```text
+stale content → stale_content
+redirect loop → redirect_loop
+503 / service unavailable → server_error
+headers / client differences → header_behavior
+unclear report → unknown
+```
 
-## Why this matters for support
+Each scenario has a predefined triage template. That keeps the output consistent and makes the support reasoning easy to inspect.
 
-A lot of support work is not immediately solving the issue. It is structuring the investigation.
-
-A useful support response should not overclaim. It should:
-
-- Confirm what is known
-- Ask for the missing evidence
-- Suggest the right checks
-- Avoid blaming the wrong system too early
-- Create clean notes for escalation
-- Turn repeated confusion into better documentation
-
-This project practices that motion.
-
-## Run locally
-
-Run a sample ticket:
+### Stale-content ticket
 
 ```bash
 python3 triage.py examples/stale_content.txt
 ```
 
-Run another sample:
+### Redirect-loop ticket
 
 ```bash
 python3 triage.py examples/redirect_loop.txt
 ```
 
-Run the test suite:
+### Server-error ticket
+
+```bash
+python3 triage.py examples/server_error.txt
+```
+
+### Header-behavior ticket
+
+```bash
+python3 triage.py examples/header_behavior.txt
+```
+
+### Test suite
 
 ```bash
 python3 -m unittest -v
 ```
 
-## Example input
+### Example input
 
 ```text
-Customer says they deployed a new version of their homepage about 20 minutes ago, but users are still seeing the old version. They want to know whether the CDN is serving stale content.
+User says they deployed a new version of their homepage about 20 minutes ago, but users are still seeing the old version. They want to know whether the CDN is serving stale content.
 ```
 
-## Example output
+### Example output
 
 ```markdown
+
 # Triage Result: Stale content / cache freshness
 
 ## Summary
+
 The customer reports that updated content is not appearing for users. This may involve cache freshness, TTL behavior, or missing purge steps.
 
 ## Evidence to collect
+
 - Affected URL or path
 - Approximate time the content was updated
 - Whether the issue affects all users or some users
@@ -109,41 +133,64 @@ The customer reports that updated content is not appearing for users. This may i
 - Whether a purge was attempted
 
 ## Suggested checks
+
 - Run `curl -I <affected_url>` to inspect response headers.
 - Check `Cache-Control` to understand how long the response can stay fresh.
 - Check `Age` to see how long the object may have been stored by a cache.
-- Confirm whether the customer expects this content to update immediately.
+- Confirm whether the user expects this content to update immediately.
 - Ask whether a purge was triggered after deployment.
 
-## Customer-safe response draft
-I'd like to confirm the cache behavior for the affected URL. Please send one or two example URLs, the approximate time the content changed, and whether a purge was triggered after deployment. I'll check the response headers, including `Cache-Control` and `Age`, to determine whether users may still be receiving a cached version.
+## User-safe response draft
+
+I’d like to confirm the cache behavior for the affected URL. Please send one or two example URLs, the approximate time the content changed, and whether a purge was triggered after deployment. I’ll check the response headers, including `Cache-Control` and `Age`, to determine whether users may still be receiving a cached version.
+
+## Escalation note
+
+Escalate if the content continues to appear stale after confirming the expected TTL, checking response headers, and verifying that a purge completed successfully.
+
+## Documentation improvement
+
+Add or improve documentation explaining how TTLs and purge behavior affect content freshness after deployments.
+
 ```
 
-## Project scope
+## Next steps
 
-This first version is intentionally small.
+This is a small first version.
 
-It does not call an external AI model yet. That is intentional. The first goal is to build a clean support triage workflow before adding an LLM.
+It does not call an external AI model yet. That is deliberate. I wanted the support workflow to be clear before adding model-generated output.
+
+This version focuses on:
+
+- Support triage structure
+- Repeatable issue categories
+- Evidence collection
+- User-safe communication
+- Escalation quality
+- Documentation follow-up
 
 Future versions could add:
 
 - LLM-generated summaries
-- Stricter guardrails against overclaiming
+- Confidence scoring
+- “Do not assume” warnings
 - JSON output
 - Markdown report export
-- Links to relevant documentation
-- Integration with sample curl output
-- Confidence scoring
-- "Do not assume" warnings
+- Links to relevant docs
+- Sample `curl` output parsing
+- Stronger classification logic
+- Guardrails for risky or unsupported claims
 
 ## What this project demonstrates
 
-This project shows that I can:
+This project shows how I approach support engineering work:
 
-- Break support issues into clear categories
-- Identify evidence needed for triage
-- Write customer-safe technical responses
-- Create useful escalation notes
-- Connect support tickets back to documentation improvements
-- Use Python to structure a repeatable support workflow
-- Approach CDN and edge support concepts in a practical, grounded way
+- I break vague issues into clear categories.
+- I separate evidence from assumptions.
+- I write responses that are useful without overpromising.
+- I create escalation notes that give the next team context.
+- I connect recurring support issues back to documentation improvements.
+- I use Python to turn a repeatable support pattern into a small working tool.
+- I learn new technical domains by building practical, reviewable examples.
+
+This is the same support motion I’ve used across technical support, API documentation, developer documentation, and user-facing troubleshooting: understand the issue, verify the behavior, explain it clearly, and make the next case easier.
